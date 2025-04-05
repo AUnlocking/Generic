@@ -1,1 +1,134 @@
 
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MC46A Calculator</title>
+    <!-- Tailwind CSS (requerido para Flowbite) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Flowbite CSS -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet">
+    <!-- Estilos personalizados (opcional) -->
+    <style>
+        /* Mantenemos el modo oscuro del original */
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #111827; /* bg-gray-900 */
+                color: white;
+            }
+            #result {
+                color: #ef4444; /* text-red-500 */
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-white rounded-lg shadow-md p-6 dark:bg-gray-800">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6 text-center dark:text-white">MC46A Calculator</h1>
+        
+        <!-- Cámara (con bordes redondeados de Flowbite) -->
+        <video id="camera" autoplay playsinline class="w-full h-auto rounded-lg mb-4 border border-gray-200 dark:border-gray-600"></video>
+        
+        <!-- Input con estilo Flowbite -->
+        <div class="mb-4">
+            <input 
+                type="text" 
+                id="inputString" 
+                placeholder="Enter Value or Scan QR Code" 
+                class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white"
+            >
+        </div>
+        
+        <!-- Botón con estilo Flowbite -->
+        <button 
+            onclick="calculateCRC32()" 
+            class="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg text-center transition-colors"
+        >
+            Calculate
+        </button>
+        
+        <!-- Resultado -->
+        <p id="result" class="mt-4 text-lg font-semibold text-red-500 dark:text-red-400"></p>
+    </div>
+
+    <!-- JSQR (original) -->
+    <script src=".\nmp\jsqr\dist\jsQR.min.js"></script>
+    
+    <!-- Flowbite JS (opcional, solo si usas componentes interactivos) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+    
+    <!-- Script original (sin cambios) -->
+    <script>
+        const video = document.getElementById('camera');
+        const inputString = document.getElementById('inputString');
+        const result = document.getElementById('result');
+
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                video.srcObject = stream;
+                video.play();
+                scanQRCode();
+            } catch (error) {
+                result.innerText = "Camera Error: " + error.message;
+            }
+        }
+
+        function scanQRCode() {
+            const canvas = document.createElement('canvas');
+            const context = canvas.getContext('2d');
+
+            function tick() {
+                if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                    const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                    const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+                    if (code && code.data.startsWith("SN_")) {
+                        inputString.value = code.data;
+                        calculateCRC32();
+                    }
+                }
+                requestAnimationFrame(tick);
+            }
+            tick();
+        }
+
+        function getCRC32(str) {
+            let crc = -1;
+            const bytes = new TextEncoder().encode(str);
+
+            for (let b of bytes) {
+                crc ^= b;
+                for (let i = 0; i < 8; i++) {
+                    if (crc & 1) {
+                        crc = (crc >>> 1) ^ (-323451360);
+                    } else {
+                        crc = (crc >>> 1) ^ 0;
+                    }
+                }
+            }
+            return (crc ^ (-1)) >>> 0;
+        }
+
+        function calculateCRC32() {
+            const input = inputString.value;
+            if (!input) {
+                result.innerText = "Please Input Value";
+                return;
+            }
+
+            const crc32 = getCRC32(input);
+            result.innerText = "Password: " + crc32.toString(16);
+        }
+
+        startCamera();
+    </script>
+</body>
+
+</html>
